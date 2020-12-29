@@ -32,3 +32,5 @@ Only the basic code is uploaded.
 This is because I think that it is smoother to start from the environment construction because I am using ARM CMSIS etc.  
 Therefore, you need to prepare the ST and ARM libraries with confidence, but it is easy if you use the STM32Cube IDE.  
 Create a project from the information in 32F407_FSMC.pdf and 32F407_FSMC.ioc in the doc directory.  
+
+More information will be added.
