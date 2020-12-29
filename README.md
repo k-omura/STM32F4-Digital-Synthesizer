@@ -18,7 +18,7 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 - Easy operation is possible with the touch panel.
 - The sound wave type is output by the DAC.
 
-## Features to be implemented
+## Future features
 - ADSR.
 - Master volume
 - What you want.
