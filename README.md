@@ -10,7 +10,7 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 - [STM32F407VED6 Black](https://stm32-base.org/boards/STM32F407VET6-STM32-F4VE-V2.0)
 - ILI9341 FSMC Display with touch panel for STM32F407VED6 Black. [for example this](https://ebay.us/9OyquX)
 
-## Basic function
+## Basic features
 - Designed to be operated from the outside via SPI.
 - Play 10 sounds (sine, square, saw, triangle x10) at the same time.
 - It has a built-in low-pass filter that can manipulate the cutoff frequency and Q value.
