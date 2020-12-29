@@ -3,7 +3,7 @@
 ## Digital synthesizer project by STM32F407VET6.
 The purpose of this project is to make a sound just by creating a simple synthesizer controller.  
 Hopefully there will be lots of innovative UI ideas for music.  
-A binary file is prepared for the controller designer, so download it from the bin directory and write it with STM32CubeProg etc.  
+A binary file is prepared for the controller designer, so download it and write it with STM32CubeProg etc.  
 See Parameter.xlsx and STM32F407_Synthesizer.pdf in the doc directory for parameter and SPI communication methods.  
 
 ## Development environment
