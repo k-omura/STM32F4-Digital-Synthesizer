@@ -26,6 +26,7 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 ## Demo
 - [Waveform creation, low-pass filter demo](https://youtu.be/SDA9uaBMBQ4)
 - [SPI control demo](https://youtu.be/EjWuWOQzq90)
+- [Auto performance](https://youtu.be/yB0PNu2G10Q)
 
 ## How to edit this project with STM32CubeIDE.
 Only the basic code is uploaded.  
