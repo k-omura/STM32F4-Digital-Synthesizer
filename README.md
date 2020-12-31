@@ -20,6 +20,7 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 
 ## Future features
 - ADSR.
+- WOW, etc...
 - Master volume
 - What you want.
 
