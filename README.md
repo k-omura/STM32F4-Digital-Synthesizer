@@ -7,7 +7,7 @@ A binary file is prepared for the controller designer, so download it and write 
 See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Parameter.xlsx](https://github.com/k-omura/Open-Digital-Synthesizer/blob/main/doc/Parameter.xlsx) and [STM32F407_Synthesizer.pdf](https://github.com/k-omura/Open-Digital-Synthesizer/blob/main/doc/STM32F407_Synthesizer.pdf) in the doc directory for parameter and SPI communication methods.  
 
 ## Development environment
-- [STM32F407VED6 Black](https://stm32-base.org/boards/STM32F407VET6-STM32-F4VE-V2.0)
+- [STM32F407VET6 Black](https://stm32-base.org/boards/STM32F407VET6-STM32-F4VE-V2.0)
 - ILI9341 FSMC Display with touch panel for STM32F407VED6 Black. [for example this](https://ebay.us/9OyquX)
 
 ## Basic features
