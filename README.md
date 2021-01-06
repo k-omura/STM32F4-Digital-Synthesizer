@@ -8,7 +8,7 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 
 ## Development environment
 - [STM32F407VET6 Black](https://stm32-base.org/boards/STM32F407VET6-STM32-F4VE-V2.0)
-- ILI9341 FSMC Display with touch panel for STM32F407VED6 Black. [for example this](https://ebay.us/9OyquX)
+- ILI9341 FSMC Display with touch panel for STM32F407VET6 Black. [for example this](https://ebay.us/9OyquX)
 
 ## Basic features
 - Designed to be operated from the outside via SPI.
@@ -29,7 +29,12 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 - [SPI control demo](https://youtu.be/EjWuWOQzq90)
 - [Auto performance](https://youtu.be/yB0PNu2G10Q)
 
-## How to edit this project with STM32CubeIDE.
+## Hot to use
+Write the binary and connect your controller.  
+See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/How-to-Use) on the Wiki for details.  
+I have prepared a [simple code](https://github.com/k-omura/Open-Digital-Synthesizer/tree/main/sample_contoler/synth_sequencer) for Arduino nano, so please check it out.
+
+## How to edit this project with STM32CubeIDE
 Only the basic code is uploaded.  
 This is because I think that it is smoother to start from the environment construction because I am using ARM CMSIS etc.  
 Therefore, you need to prepare the ST and ARM libraries with confidence, but it is easy if you use the STM32Cube IDE.  
