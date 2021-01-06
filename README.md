@@ -27,17 +27,18 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 ## Demo
 - [Waveform creation, low-pass filter demo](https://youtu.be/SDA9uaBMBQ4)
 - [SPI control demo](https://youtu.be/EjWuWOQzq90)
-- [Auto performance](https://youtu.be/yB0PNu2G10Q)
+- [Auto performance (Super Mario)](https://youtu.be/yB0PNu2G10Q)
 
 ## Hot to use
 Write the binary and connect your controller.  
 See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/How-to-Use) on the Wiki for details.  
-I have prepared a [simple code](https://github.com/k-omura/Open-Digital-Synthesizer/tree/main/sample_contoler/synth_sequencer) for Arduino nano, so please check it out.
+I have prepared a [simple code](https://github.com/k-omura/Open-Digital-Synthesizer/tree/main/sample_contoler) for Arduino nano, so please check it out.
 
 ## How to edit this project with STM32CubeIDE
 Only the basic code is uploaded.  
 This is because I think that it is smoother to start from the environment construction because I am using ARM CMSIS etc.  
 Therefore, you need to prepare the ST and ARM libraries with confidence, but it is easy if you use the STM32Cube IDE.  
 Create a project from the information in [32F407_FSMC.pdf](https://github.com/k-omura/Open-Digital-Synthesizer/blob/main/doc/32F407_FSMC.pdf) and [32F407_FSMC.ioc](https://github.com/k-omura/Open-Digital-Synthesizer/blob/main/32F407_FSMC.ioc) in the doc directory.  
+See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/Create-Project) on the Wiki for details.  
 
 More information will be added.
