@@ -35,10 +35,10 @@ See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/How-to-Use) 
 I have prepared a [simple code](https://github.com/k-omura/Open-Digital-Synthesizer/tree/main/sample_contoler) for Arduino nano, so please check it out.
 
 ## How to edit this project with STM32CubeIDE
+See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/Create-Project) on the Wiki for details.  
 Only the basic code is uploaded.  
 This is because I think that it is smoother to start from the environment construction because I am using ARM CMSIS etc.  
 Therefore, you need to prepare the ST and ARM libraries with confidence, but it is easy if you use the STM32Cube IDE.  
 Create a project from the information in [32F407_FSMC.pdf](https://github.com/k-omura/Open-Digital-Synthesizer/blob/main/doc/32F407_FSMC.pdf) and [32F407_FSMC.ioc](https://github.com/k-omura/Open-Digital-Synthesizer/blob/main/32F407_FSMC.ioc) in the doc directory.  
-See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/Create-Project) on the Wiki for details.  
 
 More information will be added.
