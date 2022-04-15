@@ -1,10 +1,10 @@
 /*
  * FSMC_ILI9341.h
  *
- *  Created on: May 27, 2020
+ *  Created on: Dec 8, 2021
  *      Author: k-omura
  *
- * FSMC 16bit
+ * FSMC 8bit
  */
 
 
@@ -16,6 +16,8 @@
 #define ILI9341_WIDTH 240
 #define ILI9341_HEIGHT 320
 #define ILI9341_PIXEL_COUNT	(ILI9341_WIDTH * ILI9341_HEIGHT)
+
+#define ILI9341_SPLIT_NUM 80
 
 //ILI9341 commands
 #define LCD_REGSELECT_BIT 18 //LCD Register Select. if A18 -> 18.
@@ -67,63 +69,17 @@
 #define ILI9341_MADCTL_BGR 0x08
 #define ILI9341_MADCTL_MH 0x04
 
-//List of colors
-#define TFT_BLACK       0x0000      /*   0,   0,   0 */
-#define TFT_NAVY        0x000F      /*   0,   0, 128 */
-#define TFT_DARKGREEN   0x03E0      /*   0, 128,   0 */
-#define TFT_DARKCYAN    0x03EF      /*   0, 128, 128 */
-#define TFT_MAROON      0x7800      /* 128,   0,   0 */
-#define TFT_PURPLE      0x780F      /* 128,   0, 128 */
-#define TFT_OLIVE       0x7BE0      /* 128, 128,   0 */
-#define TFT_LIGHTGREY   0xC618      /* 192, 192, 192 */
-#define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
-#define TFT_CYAN        0x07FF      /*   0, 255, 255 */
-#define TFT_RED         0xF800      /* 255,   0,   0 */
-#define TFT_MAGENTA     0xF81F      /* 255,   0, 255 */
-#define TFT_ORANGE      0xFD20      /* 255, 165,   0 */
-#define TFT_GREENYELLOW 0xAFE5      /* 173, 255,  47 */
-#define TFT_PINK        0xF81F
-#define TFT_WHITE       0b1111011111011110
-#define TFT_yellow      0b1110011110000000
-#define TFT_blue        0b0011000110011111
-#define TFT_green       0b0011011110000011
-#define Major_white     0b0111101111101111
-#define miner_white     0b0011100111100111
-
-typedef union {
-	uint16_t raw;
-	struct {
-		unsigned int r :5;
-		unsigned int g :6;
-		unsigned int b :5;
-	} rgb;
-	struct {
-		unsigned int high :8;
-		unsigned int low :8;
-	} split;
-} ColorUnion;
-
 //functions
 void ILI9341_sendCommand16(uint16_t);
 void ILI9341_sendData16(uint16_t);
 void ILI9341_sendCommand8(uint8_t);
 void ILI9341_sendData8(uint8_t);
+
 void ILI9341_init(void);
-void ILI9341_setRotation(uint16_t);
+void ILI9341_setRotation(uint8_t);
+
 void ILI9341_setRect(uint16_t, uint16_t, uint16_t, uint16_t);
+void ILI9341_printBitmap(uint8_t*);
+void ILI9341_printBitmap_split(uint8_t*, uint8_t);
 
-void ILI9341_drawPixel(uint16_t, uint16_t, uint16_t); //Draw single pixel to ILI9341
-void ILI9341_fill_all(uint16_t); //Fill entire ILI9341 with color
-void ILI9341_fill_Rect(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t color);
-void ILI9341_printImage(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t*);
-
-void ILI9341_addString(uint16_t, uint16_t, const char _character[], uint16_t, uint8_t);
-void ILI9341_string(uint16_t, uint16_t, const char _character[], uint16_t, uint16_t, uint8_t);
-void add_character8(uint16_t, uint16_t, char, uint16_t);
-void add_character5(uint16_t, uint16_t, char, uint16_t);
-void character8(uint16_t, uint16_t, char, uint16_t, uint16_t);
-void character5(uint16_t, uint16_t, char, uint16_t, uint16_t);
-
-//---------------------------------
-extern const unsigned char FONT8x8[][8];
-extern const unsigned char FONT5x3[][2];
+extern const uint16_t col8to16[256];

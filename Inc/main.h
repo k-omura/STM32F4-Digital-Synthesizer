@@ -58,14 +58,9 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define btn_k1_Pin GPIO_PIN_3
-#define btn_k1_GPIO_Port GPIOE
-#define btn_k1_EXTI_IRQn EXTI3_IRQn
-#define btn_k0_Pin GPIO_PIN_4
-#define btn_k0_GPIO_Port GPIOE
-#define btn_k0_EXTI_IRQn EXTI4_IRQn
-#define Board_D2_Pin GPIO_PIN_6
-#define Board_D2_GPIO_Port GPIOA
+#define SPI1_SWNSS_Pin GPIO_PIN_4
+#define SPI1_SWNSS_GPIO_Port GPIOC
+#define SPI1_SWNSS_EXTI_IRQn EXTI4_IRQn
 #define touch_it_Pin GPIO_PIN_5
 #define touch_it_GPIO_Port GPIOC
 #define touch_it_EXTI_IRQn EXTI9_5_IRQn
@@ -78,5 +73,3 @@ extern const uint16_t log_axis_f[];
 #endif
 
 #endif /* __MAIN_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

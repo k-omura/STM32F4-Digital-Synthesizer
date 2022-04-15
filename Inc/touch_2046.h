@@ -2,13 +2,16 @@
  * touch_2046.h
  *
  *  Created on: Jun 5, 2020
- *      Author: omurakosuke
+ *      Author: k-omura
  */
 
 #include "main.h"
 #include <stdio.h>
 
-#define XPT2046_ROTATION 1
+#ifndef DEF_TOUCH2046_H
+#define DEF_TOUCH2046_H
+
+#define XPT2046_ROTATION 2
 #define XPT2046_HEIGHT 320
 #define XPT2046_WIDTH 240
 
@@ -36,3 +39,5 @@ typedef struct {
 
 //void xpt2046_init(SPI_HandleTypeDef*);
 Coordinate_t xpt2046_read(SPI_HandleTypeDef*, Touch_calib_t);
+
+#endif /* DEF_TOUCH2046_H */
