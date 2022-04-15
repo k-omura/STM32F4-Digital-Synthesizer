@@ -14,25 +14,28 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 - Designed to be operated from the outside via SPI.
 - Play 10 sounds (sine, square, saw, triangle x10) at the same time.
 - It has a built-in low-pass filter that can manipulate the cutoff frequency and Q value.
-- Waveforms can be displayed on the LCD.
-- Easy operation is possible with the touch panel.
 - The sound wave type is output by the DAC.
+- Tremolo, Vibrato, WOW
+- ADSR
 
 ## Future features
-- ADSR.
-- WOW, etc...
-- Master volume
 - What you want.
 
+## Known issue(s)
+- SPI operation may stop.
+- If the SPI speed is too fast (more than about 2MHz), the operation cannot keep up.
+
 ## Demo
-- [Waveform creation, low-pass filter demo](https://youtu.be/SDA9uaBMBQ4)
-- [SPI control demo](https://youtu.be/EjWuWOQzq90)
-- [Auto performance (Super Mario)](https://youtu.be/yB0PNu2G10Q)
+- Old Version
+  - [Waveform creation, low-pass filter demo](https://youtu.be/SDA9uaBMBQ4)
+  - [SPI control demo](https://youtu.be/EjWuWOQzq90)
+  - [Auto performance (Super Mario)](https://youtu.be/yB0PNu2G10Q)
 
 ## Hot to use
 Write the binary and connect your controller.  
 See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/How-to-Use) on the Wiki for details.  
-I have prepared a [simple code](https://github.com/k-omura/Open-Digital-Synthesizer/tree/main/sample_contoler) for Arduino nano, so please check it out.
+I have prepared a [simple code](https://github.com/k-omura/Open-Digital-Synthesizer/tree/main/sample_contoler) for Arduino nano, so please check it out.  
+Set the SPI speed to about 1MHz.  
 
 ## How to edit this project with STM32CubeIDE
 See [here](https://github.com/k-omura/Open-Digital-Synthesizer/wiki/Create-Project) on the Wiki for details.  
