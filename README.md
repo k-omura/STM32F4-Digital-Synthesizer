@@ -26,6 +26,7 @@ See [Wiki](https://github.com/k-omura/Open-Digital-Synthesizer/wiki) or [Paramet
 - If the SPI speed is too fast (more than about 2MHz), the operation cannot keep up.
 
 ## Demo
+- [Introduction of each function](https://youtu.be/cMSFZtEUxo4)
 - Old Version
   - [Waveform creation, low-pass filter demo](https://youtu.be/SDA9uaBMBQ4)
   - [SPI control demo](https://youtu.be/EjWuWOQzq90)
