@@ -2,7 +2,7 @@
  * touch_2046.c
  *
  *  Created on: Jun 5, 2020
- *      Author: omurakosuke
+ *      Author: k-omura
  */
 
 #include <touch_2046.h>
@@ -101,4 +101,3 @@ Coordinate_t xpt2046_read(SPI_HandleTypeDef *_hspi, Touch_calib_t _calib) {
 
 	return output;
 }
-

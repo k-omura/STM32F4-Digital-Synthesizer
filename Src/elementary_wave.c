@@ -2,115 +2,70 @@
  * elementary_wave.c
  *
  *  Created on: May 28, 2020
- *      Author: omurakosuke
+ *      Author: k-omura
  */
 
 #include "elementary_wave.h"
 
-void add_square(float *_audio, uint32_t _start_index, float _period_us,
-		uint16_t _amp, uint16_t _size) {
+void add_square(float32_t *_audio, float32_t *_rad, uint16_t _amp, uint16_t _size) {
 	if (_amp == 0) {
 		return;
 	}
 
-	float audio_temp[NUM_SAMPLING] = { 0 };
-	float half_period = _period_us / 2;
-	uint32_t half_cycle_count = (uint32_t)((SAMPLE_CYCLE * _start_index) / half_period);
-
 	for(uint16_t t = 0; t < _size; t++){
-		float time_us = SAMPLE_CYCLE * (t + _start_index);
-
-		if((half_cycle_count % 2) == 0){
-			audio_temp[t] = _amp;
-		} else {
-			audio_temp[t] = -_amp;
-		}
-
-		if((time_us + SAMPLE_CYCLE) >= ((half_cycle_count + 1) * half_period)){
-			half_cycle_count++;
+		if(_rad[t] < M_PI){
+			_audio[t] += _amp;
+		}else{
+			_audio[t] -= _amp;
 		}
 	}
-
-	arm_add_f32((_audio + PRE_SAMPLE), audio_temp, (_audio + PRE_SAMPLE), NUM_SAMPLING);
 
 	return;
 }
 
-void add_triangle(float *_audio, uint32_t _start_index, float _period_us,
-		uint16_t _amp, uint16_t _size) {
+void add_triangle(float32_t *_audio, float32_t *_rad, uint16_t _amp, uint16_t _size) {
 	if (_amp == 0) {
 		return;
 	}
 
-	float audio_temp[NUM_SAMPLING] = { 0 };
-	float half_period = _period_us / 2;
-	uint32_t half_cycle_count = (uint32_t)((SAMPLE_CYCLE * _start_index) / half_period);
-	float slope = 2 * _amp / half_period;
-
 	for(uint16_t t = 0; t < _size; t++){
-		float time_us = SAMPLE_CYCLE * (t + _start_index);
-
-		if((half_cycle_count % 2) == 0){
-			audio_temp[t] = -_amp + slope * (time_us - (half_period * half_cycle_count));
-		} else {
-			audio_temp[t] = _amp - slope * (time_us - (half_period * half_cycle_count));
-		}
-
-		if((time_us + SAMPLE_CYCLE) >= ((half_cycle_count + 1) * half_period)){
-			half_cycle_count++;
+		if(_rad[t] < M_PI){
+			_audio[t] += (2 * _amp * _rad[t] / (float32_t)M_PI) - _amp;
+		}else{
+			_audio[t] += (-2 * _amp * (_rad[t] - M_PI) / (float32_t)M_PI) + _amp;
 		}
 	}
-
-	arm_add_f32((_audio + PRE_SAMPLE), audio_temp, (_audio + PRE_SAMPLE), NUM_SAMPLING);
 
 	return;
 }
 
-void add_sawtooth(float *_audio, uint32_t _start_index, float _period_us,
-		uint16_t _amp, uint16_t _size) {
+void add_sawtooth(float32_t *_audio, float32_t *_rad, uint16_t _amp, uint16_t _size) {
 	if (_amp == 0) {
 		return;
 	}
 
-	float audio_temp[NUM_SAMPLING] = { 0 };
-	uint32_t cycle_count = (uint32_t)((SAMPLE_CYCLE * _start_index) / _period_us);
-	float slope = 2 * _amp / _period_us;
-
 	for(uint16_t t = 0; t < _size; t++){
-		float time_us = SAMPLE_CYCLE * (t + _start_index);
-		audio_temp[t] = -_amp + slope * (time_us - (_period_us * cycle_count));
-
-		if((time_us + SAMPLE_CYCLE) >= ((cycle_count + 1) * _period_us)){
-			cycle_count++;
-		}
+		_audio[t] += (-_amp * _rad[t] / (float32_t)M_PI) + _amp;
 	}
-
-	arm_add_f32((_audio + PRE_SAMPLE), audio_temp, (_audio + PRE_SAMPLE), NUM_SAMPLING);
 
 	return;
 }
 
-void add_sin(float *_audio, uint32_t _start_index, float _freq, uint16_t _amp, uint16_t _size) {
+void add_sin(float32_t *_audio, float32_t *_rad, uint16_t _amp, uint16_t _size) {
 	if (_amp == 0) {
 		return;
 	}
 
-	float audio_temp[NUM_SAMPLING] = { 0 };
-	float omega = 2 * M_PI * _freq * (SAMPLE_CYCLE/ (float)1000000);
 	for(uint16_t t = 0; t < _size; t++){
-		uint32_t time_index = t + _start_index;
-		audio_temp[t] = arm_sin_f32(omega * time_index);
+		_audio[t] += _amp * arm_sin_f32(_rad[t]);
 	}
-
-	arm_scale_f32(audio_temp, _amp, audio_temp, NUM_SAMPLING);
-	arm_add_f32((_audio + PRE_SAMPLE), audio_temp, (_audio + PRE_SAMPLE), NUM_SAMPLING);
 
 	return;
 }
 
 //
-void float2uint(float *_in, uint16_t *_out, uint16_t _start, uint16_t _end) {
-	float tmp;
+void float2uint(float32_t *_in, uint16_t *_out, uint16_t _start, uint16_t _end) {
+	float32_t tmp;
 	for (uint16_t t = _start; t < _end; t++) {
 		tmp = _in[t + PRE_SAMPLE];
 
@@ -123,11 +78,11 @@ void float2uint(float *_in, uint16_t *_out, uint16_t _start, uint16_t _end) {
 	}
 }
 
-void calc_lpf_coeffs(float32_t *_coeffs, float _freq_cut, float _q_factor) {
-	float omega_c = 2 * M_PI * _freq_cut / SAMPLE_FREQ;
-	float alfa = arm_sin_f32(omega_c) / _q_factor;
-	float a0 = 1 + alfa;
-	float cos_omega_c = arm_cos_f32(omega_c);
+void calc_lpf_coeffs(float32_t *_coeffs, float32_t _freq_cut, float32_t _q_factor) {
+	float32_t omega_c = 2 * M_PI * _freq_cut / SAMPLE_FREQ;
+	float32_t alfa = arm_sin_f32(omega_c) / _q_factor;
+	float32_t a0 = 1 + alfa;
+	float32_t cos_omega_c = arm_cos_f32(omega_c);
 
 	_coeffs[1] = (1 - cos_omega_c) / a0; //b1
 	_coeffs[0] = _coeffs[1] / 2; //b0
@@ -136,18 +91,17 @@ void calc_lpf_coeffs(float32_t *_coeffs, float _freq_cut, float _q_factor) {
 	_coeffs[4] = 1 - (2 / a0); //a2
 }
 
-void calc_amp_char(uint16_t *_amp, float _freq_cut, float _q_factor) {
-	float omega_c = 2 * M_PI * (float) _freq_cut;
-	float inv_q_sqare = 1 / (_q_factor * _q_factor);
+void calc_amp_char(uint16_t *_amp, float32_t _freq_cut, float32_t _q_factor) {
+	float32_t omega_c = 2 * M_PI * (float32_t) _freq_cut;
+	float32_t inv_q_sqare = 1 / (_q_factor * _q_factor);
 
 	for (uint16_t i = 0; i < 240; i++) {
-		float omega = log_axis[i];
-		float omega_c_per = omega_c / omega;
-		float omega_c_per_square = omega_c_per * omega_c_per;
-		float sqrt_in, amp_temp;
+		float32_t omega = log_axis[i];
+		float32_t omega_c_per = omega_c / omega;
+		float32_t omega_c_per_square = omega_c_per * omega_c_per;
+		float32_t sqrt_in, amp_temp;
 
-		sqrt_in = omega_c_per_square + (1 / omega_c_per_square) + inv_q_sqare
-				- 2;
+		sqrt_in = omega_c_per_square + (1 / omega_c_per_square) + inv_q_sqare - 2;
 		arm_sqrt_f32(sqrt_in, &amp_temp);
 		amp_temp = omega_c_per / amp_temp;
 		amp_temp = -20 * log10f(amp_temp) + 20;
@@ -156,7 +110,7 @@ void calc_amp_char(uint16_t *_amp, float _freq_cut, float _q_factor) {
 }
 
 //------------
-const float log_axis[240] = { 125.663706143592, 129.348728894708,
+const float32_t log_axis[240] = { 125.663706143592, 129.348728894708,
 		133.141813019254, 137.046127360741, 141.064933687363, 145.201589416971,
 		149.459550421943, 153.842373916319, 158.353721427585, 162.997361855615,
 		167.777174621311, 172.697152907572, 177.761406995305, 182.974167697266,
