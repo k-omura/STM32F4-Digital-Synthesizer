@@ -64,6 +64,7 @@ void Error_Handler(void);
 #define touch_it_Pin GPIO_PIN_5
 #define touch_it_GPIO_Port GPIOC
 #define touch_it_EXTI_IRQn EXTI9_5_IRQn
+
 /* USER CODE BEGIN Private defines */
 extern const uint16_t log_axis_f[];
 /* USER CODE END Private defines */

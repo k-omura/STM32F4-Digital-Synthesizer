@@ -17,7 +17,7 @@
 #define ILI9341_HEIGHT 320
 #define ILI9341_PIXEL_COUNT	(ILI9341_WIDTH * ILI9341_HEIGHT)
 
-#define ILI9341_SPLIT_NUM 80
+#define ILI9341_SPLIT_NUM 16
 
 //ILI9341 commands
 #define LCD_REGSELECT_BIT 18 //LCD Register Select. if A18 -> 18.
@@ -77,6 +77,9 @@ void ILI9341_sendData8(uint8_t);
 
 void ILI9341_init(void);
 void ILI9341_setRotation(uint8_t);
+
+HAL_StatusTypeDef ILI9341_useDma(DMA_HandleTypeDef*);
+void ILI9341_printBitmapDma(uint8_t*);
 
 void ILI9341_setRect(uint16_t, uint16_t, uint16_t, uint16_t);
 void ILI9341_printBitmap(uint8_t*);

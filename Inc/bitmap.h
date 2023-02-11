@@ -38,6 +38,7 @@ void bitmap_fillrect(uint16_t, uint16_t, uint16_t, uint16_t, uint8_t);
 
 void bitmap_circle(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint8_t);
 void bitmap_fillcircle(uint16_t, uint16_t, uint16_t, uint16_t, uint8_t);
+void bitmap_arc(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint8_t);
 
 void bitmap_roundrect(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint8_t);
 void bitmap_fillroundrect(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t, uint8_t);
@@ -46,6 +47,8 @@ void bitmap_stringBitmap(uint16_t, uint16_t, const char _character[], uint8_t, u
 void bitmap_characterBitmap8(uint16_t, uint16_t, char, uint8_t, uint8_t, uint8_t);
 void bitmap_characterBitmap5(uint16_t, uint16_t, char, uint8_t);
 void bitmap_terminal(const char _character[], uint8_t, uint8_t, uint8_t);
+
+void bitmap_animation_4bit(const uint8_t* _bitmap, const uint8_t* _color_map, uint16_t, uint16_t, uint16_t, uint16_t);
 
 //---------------------------------
 extern const unsigned char FONT8x8[][97][8];
