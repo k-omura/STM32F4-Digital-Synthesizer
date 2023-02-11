@@ -32,6 +32,8 @@
 #include <bitmap.h>
 #include <touch_2046.h>
 #include <stm32uikit.h>
+
+#include <otakuro_logo.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,23 +54,7 @@ typedef union {
 #define XPT2046_MIN_RAW_Y 290
 #define XPT2046_MAX_RAW_Y 3870
 
-#define STATUS_WAIT 0
-#define STATUS_HALF 1
-#define STATUS_DONE 2
-
 #define COLOR_BACKGROUND 0x00
-
-#define IND_WOW 0
-#define IND_VIB 1
-#define IND_TRE 2
-#define IND_FIL 3
-#define IND_SIG 4
-
-#define SIG_SIN  0
-#define SIG_SQU  1
-#define SIG_SAW1 2
-#define SIG_TRI  3
-#define SIG_SAW2 4
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,8 +63,10 @@ typedef union {
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- DAC_HandleTypeDef hdac;
+DAC_HandleTypeDef hdac;
 DMA_HandleTypeDef hdma_dac1;
+
+RNG_HandleTypeDef hrng;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
@@ -92,8 +80,6 @@ DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
-uint8_t status = STATUS_DONE;
-
 //uint8_t spi_controler_tx[4] = {0};
 uint8_t frameBuffer[ILI9341_PIXEL_COUNT] = {0};
 
@@ -114,6 +100,7 @@ static void MX_SPI2_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_RNG_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -157,15 +144,6 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi) {
 		HAL_SPI_Receive_DMA(&hspi3, spi_controler_rx, 4);
 	}
 }
-
-void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
-	status = STATUS_DONE;
-}
-
-void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
-	status = STATUS_HALF;
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -203,6 +181,7 @@ int main(void)
   MX_SPI3_Init();
   MX_TIM6_Init();
   MX_SPI1_Init();
+  MX_RNG_Init();
   /* USER CODE BEGIN 2 */
 
   // Touch init
@@ -225,63 +204,48 @@ int main(void)
 	bitmap_clear();
 
 	//color test
+	/*
 	for (uint16_t i = 0; i < 256; i++) {
 		bitmap_fillrect(15 * (i % 16), ((uint16_t) (i / 16) * 15), 15 * (i % 16) + 14, ((uint16_t) (i / 16) * 15) + 14, i);
 	}
-	bitmap_stringBitmap(40, 260, "STM32F407 Synthesizer", 1, 1, 0xff);
-	bitmap_stringBitmap(165, 310, "V20220408", 1, 1, 0xff);
-
 	ILI9341_printBitmap(frameBuffer);
 	bitmap_clear();
 	HAL_Delay(2000);
+	*/
+
+	//otakuro animation
+	for (uint8_t i = 0; i < 13; i++) {
+		bitmap_clear();
+		bitmap_animation_4bit(&OTAKURO[i][0][0], OTAKURO_color_map, 72, 100, 48, 64);
+		ILI9341_printBitmap(frameBuffer);
+		HAL_Delay(100);
+	}
+	bitmap_stringBitmap(40, 180, "STM32F407 Synthesizer", 1, 1, 0xff);
+	bitmap_stringBitmap(165, 310, "V20230205", 1, 1, 0xff);
+	ILI9341_printBitmap(frameBuffer);
+	HAL_Delay(2000);
+
+	uint8_t color_behavior[] = {0x0b, 0x58, 0xf8, 0xe4, 0xff};
+	uint8_t color_signal[] = {0xde, 0x9f, 0xef, 0xfd};
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	uint16_t audio_dac[NUM_SAMPLING] = { 0 };
-	float32_t audio_in[SAMPLE_ALL] = { 0 };
-	float32_t audio_out[SAMPLE_ALL] = { 0 };
-	float32_t audio_rad[NUM_SAMPLING] = { 0 };
-	float32_t audio_amp[NUM_SAMPLING] = { 0 };
-
-	float32_t audio_rad_chord[10] = {0};
-	uint16_t notenum_prev[10] = {0};
-	uint16_t sig_amp_prev[10] = {0};
-	uint8_t sig_sync_ch = 1; //Synchronize signal components to S1 for all channels
-
-	float32_t lfo_freq[3] = {0};
-	float32_t lfo_rad[3] = {0};
-	float32_t vib = 0;
-
-	uint32_t adsr_time[10] = {0};
-	uint8_t adsr_state[10] = {0};
-	uint32_t adsr_a_time = 0;
-	uint32_t adsr_d_time = 0;
-	uint32_t adsr_r_time = 0;
-
-	arm_biquad_cascade_df2T_instance_f32 S;
-	float32_t pCoeffs[5];
-	float32_t buffer[2];
-
-	//uint16_t amp_characteristic[ILI9341_WIDTH];
-	float32_t cutoff_freq = 0;
-	uint16_t cutoff_NN = 1;
-	int16_t wow_NN = 0;
-	float32_t q_factor = 0.8;
-
-	uint8_t color_behavior[] = {0x0b, 0x58, 0xf8, 0xe4, 0xff};
-	uint8_t color_signal[] = {0xde, 0x9f, 0xef, 0xfd};
-
 	//input spi
 	HAL_SPI_Receive_DMA(&hspi3, spi_controler_rx, 4);
 	spiRecieving = 0; //start spi1 read
 	uint8_t displaySplitIndex = 0; //Split screen display index
 
 	//start timer and DAC
+	uint16_t audio_dac[SYNTH_NUM_SAMPLING] = { 0 };
 	HAL_TIM_GenerateEvent(&htim6, TIM_EVENTSOURCE_UPDATE);
 	HAL_TIM_Base_Start(&htim6);
-	HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) audio_dac, NUM_SAMPLING, DAC_ALIGN_12B_R);
+	HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*) audio_dac, SYNTH_NUM_SAMPLING, DAC_ALIGN_12B_R);
+
+	//parameter setting
+	set_synth_para(audio_dac, control_value);
+	uint8_t synth_process_status = 1;
 
 	//init value(for test)
 	/*
@@ -292,9 +256,27 @@ int main(void)
 	control_value[S1_TRI] = 0;
 	control_value[S1_SAW] = 0;
 	//*/
-	//*
+	//control_value[S1_SIN] = 400;
+
+	//default value
+	control_value[M_VOLUME] = 50;
+	control_value[SYNC_WAVFORM] = 1;
 	control_value[LPF_CUTOFF] = 34579; //20kHz
 	control_value[LPF_Q] = 80;
+	control_value[PITCH] = 256;
+	control_value[VIB_AMP] = 0x0100;
+	control_value[TRE_AMP] = 400;
+
+	control_value[S1_ENABLE] = 0;
+	control_value[S2_ENABLE] = 0;
+	control_value[S3_ENABLE] = 0;
+	control_value[S4_ENABLE] = 0;
+	control_value[S5_ENABLE] = 0;
+	control_value[S6_ENABLE] = 0;
+	control_value[S7_ENABLE] = 0;
+	control_value[S8_ENABLE] = 0;
+	control_value[S9_ENABLE] = 0;
+	control_value[S10_ENABLE] = 0;
 
 	control_value[S1_FREQ] = 72 << 8;
 	control_value[S2_FREQ] = 74 << 8;
@@ -307,22 +289,10 @@ int main(void)
 	control_value[S9_FREQ] = 84 << 8;
 	control_value[S10_FREQ] = 86 << 8;
 
-	control_value[S1_SIN] = 500;
-	control_value[S2_SIN] = 500;
-	control_value[S3_SIN] = 500;
-	control_value[S4_SIN] = 500;
-	control_value[S5_SIN] = 500;
-	control_value[S6_SIN] = 500;
-	control_value[S7_SIN] = 500;
-	control_value[S8_SIN] = 500;
-	control_value[S9_SIN] = 500;
-	control_value[S10_SIN] = 500;
-
 	control_value[EG_ATTACK_TIM] = 100;
 	control_value[EG_ATTACK_LEVEL] = 150;
 	control_value[EG_DECAY_TIME] = 150;
 	control_value[EG_RELEASE_TIME] = 500;
-	//*/
 
 	while (1) {
 		//input touch
@@ -350,516 +320,235 @@ int main(void)
 		}
 		*/
 
-		switch (status) {
-			case STATUS_HALF:
-				//update array for DAC(First half)
-				float2uint(audio_out, audio_dac, 0, HALF_NUM_SAMPLING);
+		synth_process_status = synth_process();
 
-				//vibrato
-				vib = 0;
-				if ((0 < control_value[VIB_LFO]) && (0 < control_value[VIB_AMP])) {
-					switch(control_value[VIB_FORM]){
+		if(synth_process_status == 1) {
+			if(displaySplitIndex < ILI9341_SPLIT_NUM){
+				ILI9341_printBitmap_split(frameBuffer, displaySplitIndex++);
+			}else if(displaySplitIndex == ILI9341_SPLIT_NUM){
+				//set frame buffer
+				bitmap_clear();
+
+				uint16_t dis_y_adsr = 20;
+				uint16_t dis_x_adsr = 30;
+				uint16_t dis_x1, dis_x2, dis_y1, dis_y2;
+
+				bitmap_stringBitmap(5, dis_y_adsr - 10, "ADSR", 1, 1, 0xff);
+				bitmap_line(20, dis_y_adsr + 100, 220, dis_y_adsr + 100, 0xda); //0 line
+				bitmap_stringBitmap(188, dis_y_adsr + 103, "[ms]", 1, 1, 0xda);
+
+				dis_x1 = dis_x_adsr + (20 * ((control_value[EG_ATTACK_TIM] > 1000)?(1000):(control_value[EG_ATTACK_TIM])) / 1000);
+				dis_y1 = dis_y_adsr + 100 - (uint16_t)(50 * control_value[EG_ATTACK_LEVEL] / 100);
+				bitmap_line(dis_x_adsr, dis_y_adsr + 100, dis_x1, dis_y1, 0x1f); //A line
+				sprintf(string, "%4d", control_value[EG_ATTACK_TIM]);
+				bitmap_stringBitmap(dis_x_adsr, dis_y_adsr + 103, string, 0, 0, 0x1f);
+				sprintf(string, "%d.%02d", (uint8_t) (control_value[EG_ATTACK_LEVEL] / 100), (uint8_t) (control_value[EG_ATTACK_LEVEL] * 100) % 100);
+				bitmap_stringBitmap(dis_x1 - 20, dis_y1, string, 0, 0, 0x1f);
+
+				dis_x2 = dis_x1 + (20 * ((control_value[EG_DECAY_TIME] > 1000)?(1000):(control_value[EG_DECAY_TIME])) / 1000);
+				dis_y2 = dis_y_adsr + 50;
+				bitmap_line(dis_x1, dis_y1, dis_x2, dis_y2, 0x9d); //D line
+				sprintf(string, "%4d", control_value[EG_DECAY_TIME]);
+				bitmap_stringBitmap(dis_x1, dis_y2 + 2, string, 0, 0, 0x9d);
+
+				dis_x1 = dis_x2 + 20;
+				bitmap_line(dis_x2, dis_y2, dis_x1, dis_y2, 0xf4); //S line
+
+				dis_x2 = dis_x1 + (120 * ((control_value[EG_RELEASE_TIME] > 6000)?(6000):(control_value[EG_RELEASE_TIME])) / 6000);
+				bitmap_line(dis_x1, dis_y2, dis_x2, dis_y_adsr + 100, 0xfd); //R line
+				sprintf(string, "%5d", control_value[EG_RELEASE_TIME]);
+				bitmap_stringBitmap(dis_x1, dis_y2 - 10, string, 0, 0, 0xfd);
+
+				//Noise
+				if(control_value[N1_ENABLE] > 0){
+					bitmap_rect(100, 10, 102, 12, 1, 0xff);
+				}
+				if(control_value[N2_ENABLE] > 0){
+					bitmap_rect(103, 10, 105, 12, 1, 0xff);
+				}
+				if(control_value[N3_ENABLE] > 0){
+					bitmap_rect(106, 10, 107, 12, 1, 0xff);
+				}
+
+				displaySplitIndex++;
+			}else{
+				//display para all
+				uint16_t dis_y_freq = 250;
+				uint16_t dis_y_amp = 160;
+				uint16_t dis_x_freq, dis_x_amp;
+				uint16_t dis_width_lfo_vib = 0;
+				uint16_t dis_width_lfo_tre = 0;
+				uint16_t dis_width_lfo_wow = 0;
+
+				//title
+				bitmap_stringBitmap(45, dis_y_amp - 20, "LPF", 1, 1, color_behavior[SYNTH_IND_FIL]);
+				bitmap_stringBitmap(85, dis_y_amp - 20, "WOW", 1, 1, color_behavior[SYNTH_IND_WOW]);
+				bitmap_stringBitmap(125, dis_y_amp - 20, "VIB", 1, 1, color_behavior[SYNTH_IND_VIB]);
+				bitmap_stringBitmap(165, dis_y_amp - 20, "TRE", 1, 1, color_behavior[SYNTH_IND_TRE]);
+
+				//behavior formtype
+				uint16_t behavior_formtype = WOW_FORM;
+				uint8_t x_formtype = 85 + 8 * 3;
+				for(uint8_t i = 0; i < 3; i++){
+					switch(control_value[behavior_formtype]){
 						case 0:
-							vib = arm_sin_f32(lfo_rad[IND_VIB]);
+							bitmap_stringBitmap(x_formtype, dis_y_amp - 20, "~", 1, 1, color_behavior[i]);
 							break;
 						case 1:
-							if (lfo_rad[IND_VIB] < M_PI){
-								vib = 1;
-							}else{
-								vib = -1;
-							}
+							bitmap_line(x_formtype, dis_y_amp - 20, x_formtype + 4, dis_y_amp - 20, color_behavior[i]);
+							bitmap_line(x_formtype + 4, dis_y_amp - 20, x_formtype + 4, dis_y_amp - 13, color_behavior[i]);
+							bitmap_line(x_formtype + 4, dis_y_amp - 13, x_formtype + 8, dis_y_amp - 13, color_behavior[i]);
 							break;
 						case 2:
-							vib = (-lfo_rad[IND_VIB] / (float32_t)M_PI) + 1;
+							bitmap_line(x_formtype, dis_y_amp - 20, x_formtype + 7, dis_y_amp - 13, color_behavior[i]);
 							break;
 						case 3:
-							vib = (lfo_rad[IND_VIB] / (float32_t)M_PI) - 1;
+							bitmap_line(x_formtype, dis_y_amp - 13, x_formtype + 7, dis_y_amp - 20, color_behavior[i]);
 							break;
 						default:
-							vib = 0;
 							break;
 					}
-					vib = control_value[VIB_AMP] * vib;
-
-					//refresh omega
-
-					lfo_freq[IND_VIB] = 20 * control_value[VIB_LFO] / (float32_t)65535;
-					float32_t delta_omega = 2 * M_PI * lfo_freq[IND_VIB] * (SAMPLE_CYCLE / (float32_t)1000000);
-					lfo_rad[IND_VIB] = lfo_rad[IND_VIB] + (NUM_SAMPLING * delta_omega);
-					while(lfo_rad[IND_VIB] > (2 * M_PI)){
-						lfo_rad[IND_VIB] -= (2 * M_PI);
-					}
+					behavior_formtype += 3;
+					x_formtype += 40;
 				}
 
-				//tremolo
-				arm_fill_f32(0, audio_amp, NUM_SAMPLING);
-				if ((0 < control_value[TRE_LFO]) && (0 < control_value[TRE_AMP])) {
-					float32_t tre;
-					lfo_freq[IND_TRE] = 20 * control_value[TRE_LFO] / (float32_t)65535;
-					float32_t delta_omega = 2 * M_PI * lfo_freq[IND_TRE] * (SAMPLE_CYCLE / (float32_t)1000000);
+				//amp. axis
+				bitmap_stringBitmap(5, dis_y_amp - 10, "AMP.", 1, 1, 0xff);
+				bitmap_stringBitmap(45, dis_y_amp - 10, "SIN", 1, 1, color_signal[SYNTH_SIG_SIN]);
+				bitmap_stringBitmap(85, dis_y_amp - 10, "SQU", 1, 1, color_signal[SYNTH_SIG_SQU]);
+				bitmap_stringBitmap(125, dis_y_amp - 10, "SAW", 1, 1, color_signal[SYNTH_SIG_SAW1]);
+				bitmap_stringBitmap(165, dis_y_amp - 10, "TRI", 1, 1, color_signal[SYNTH_SIG_TRI]);
 
-					for(uint16_t t = 0; t < NUM_SAMPLING; t++){
-						switch(control_value[TRE_FORM]){
-							case 0:
-								tre = arm_sin_f32(lfo_rad[IND_TRE]);
-								break;
-							case 1:
-								if (lfo_rad[IND_TRE] < M_PI){
-									tre = 1;
-								}else{
-									tre = -1;
-								}
-								break;
-							case 2:
-								tre = (-lfo_rad[IND_TRE] / (float32_t)M_PI) + 1;
-								break;
-							case 3:
-								tre = (lfo_rad[IND_TRE] / (float32_t)M_PI) - 1;
-								break;
-							default:
-								tre = 0;
-								break;
-						}
-						audio_amp[t] = control_value[TRE_AMP] * tre / 1000;
+				//freq. axis
+				bitmap_stringBitmap(5, dis_y_freq - 10, "FREQ.", 1, 1, 0xff);
+				sprintf(string, "[Q:%2d.%02d]", (uint8_t)(control_value[LPF_Q] / 100), (uint8_t) (control_value[LPF_Q]) % 100);
+				bitmap_stringBitmap(140, dis_y_freq - 10, string, 1, 1, color_behavior[SYNTH_IND_FIL]);
 
-						lfo_rad[IND_TRE] += delta_omega;
-						if(lfo_rad[IND_TRE] > (2 * M_PI)){
-							lfo_rad[IND_TRE] -= (2 * M_PI);
-						}
-					}
+				bitmap_line(30, dis_y_freq, 30, dis_y_freq + 60, 0xda); //0.1Hz
+				bitmap_line(64, dis_y_freq, 64, dis_y_freq + 60, 0xda); //1Hz
+				bitmap_line(98, dis_y_freq, 98, dis_y_freq + 60, 0xda); //10Hz
+				bitmap_line(132, dis_y_freq, 132, dis_y_freq + 60, 0xda); //100Hz
+				bitmap_line(166, dis_y_freq, 166, dis_y_freq + 60, 0xda); //1000Hz
+				bitmap_line(200, dis_y_freq, 200, dis_y_freq + 60, 0xda); //10000Hz
+				bitmap_stringBitmap(30, dis_y_freq + 62, "0.1", 0, 0, 0xda);
+				bitmap_stringBitmap(64, dis_y_freq + 62, "1", 0, 0, 0xda);
+				bitmap_stringBitmap(98, dis_y_freq + 62, "10", 0, 0, 0xda);
+				bitmap_stringBitmap(132, dis_y_freq + 62, "100", 0, 0, 0xda);
+				bitmap_stringBitmap(166, dis_y_freq + 62, "1k", 0, 0, 0xda);
+				bitmap_stringBitmap(200, dis_y_freq + 62, "10k", 0, 0, 0xda);
+				//bitmap_line(210, dis_y_freq, 210, dis_y_freq + 60, 0xda); //20000Hz
+
+				float32_t axis_tmp;
+
+				//vib
+				dis_width_lfo_vib = (180.0f * control_value[VIB_AMP]) / 34579.0f;
+
+				axis_tmp = 12.0f * log2f((20.0f * (float32_t)control_value[VIB_LFO] / 65535.0f) / 440.0f) + 69 + 76.2394537;
+				axis_tmp = 30.0f + 180.0f * axis_tmp / 211.0f;
+				dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
+				if (20 < dis_x_freq) {
+					bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[SYNTH_IND_VIB]);
+				}else{
+					bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 20, color_behavior[SYNTH_IND_VIB]);
 				}
-				arm_offset_f32(audio_amp, 1, audio_amp, NUM_SAMPLING);
+
+				//tre
+				dis_width_lfo_tre = 20.0f + (200.0f * control_value[TRE_AMP]) / 34579.0f;
+				bitmap_line(dis_width_lfo_tre, dis_y_amp, dis_width_lfo_tre, dis_y_amp + 60, color_behavior[SYNTH_IND_TRE]);
+
+				axis_tmp = 12 * log2f((20.0f * (float32_t)control_value[TRE_LFO] / 65535.0f) / 440.0f) + 69.0f + 76.2394537f;
+				axis_tmp = 30 + 180 * axis_tmp / 211;
+				dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
+				if (20 < dis_x_freq) {
+					bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[SYNTH_IND_TRE]);
+				}else{
+					bitmap_line(dis_x_freq, dis_y_freq + 21, dis_x_freq, dis_y_freq + 40, color_behavior[SYNTH_IND_TRE]);
+				}
 
 				//wow
-				if ((0 < control_value[WOW_LFO]) && (0 < control_value[WOW_AMP])) {
-					float32_t wow;
-					lfo_freq[IND_WOW] = 20 * control_value[WOW_LFO] / (float32_t)65535;
-					float32_t delta_omega = 2 * M_PI * lfo_freq[IND_WOW] * (SAMPLE_CYCLE / (float32_t)1000000);
+				//filter
+				axis_tmp = (control_value[LPF_CUTOFF] / 256.0f) + 76.2394537;
+				axis_tmp = 30 + 180 * axis_tmp / 211;
+				dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
+				dis_width_lfo_wow = (180 * control_value[WOW_AMP]) / 34579;
 
-					switch(control_value[WOW_FORM]){
-						case 0:
-							wow = arm_sin_f32(lfo_rad[IND_WOW]);
-							break;
-						case 1:
-							if (lfo_rad[IND_WOW] < M_PI){
-								wow = 1;
-							}else{
-								wow = -1;
-							}
-							break;
-						case 2:
-							wow = (-lfo_rad[IND_WOW] / (float32_t)M_PI) + 1;
-							break;
-						case 3:
-							wow = (lfo_rad[IND_WOW] / (float32_t)M_PI) - 1;
-							break;
-						default:
-							wow = 0;
-							break;
-					}
-					wow_NN = (int16_t)(control_value[WOW_AMP] * wow);
+				bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[SYNTH_IND_FIL]);
+				bitmap_line(dis_x_freq - dis_width_lfo_wow, dis_y_freq, dis_x_freq - dis_width_lfo_wow, dis_y_freq + 60, color_behavior[SYNTH_IND_FIL]);
+				bitmap_line(dis_x_freq + dis_width_lfo_wow, dis_y_freq, dis_x_freq + dis_width_lfo_wow, dis_y_freq + 60, color_behavior[SYNTH_IND_FIL]);
 
-					lfo_rad[IND_WOW] = lfo_rad[IND_WOW] + NUM_SAMPLING * delta_omega;
-					while(lfo_rad[IND_WOW] > (2 * M_PI)){
-						lfo_rad[IND_WOW] -= (2 * M_PI);
-					}
-				}
-
-				//ADSR
-				if(control_value[EG_ATTACK_LEVEL] < 100){
-					control_value[EG_ATTACK_LEVEL] = 100;
-				}
-				if(control_value[EG_ATTACK_TIM] == 0){
-					control_value[EG_ATTACK_TIM] = 1;
-				}
-				if(control_value[EG_DECAY_TIME] == 0){
-					control_value[EG_DECAY_TIME] = 1;
-				}
-				if(control_value[EG_RELEASE_TIME] == 0){
-					control_value[EG_RELEASE_TIME] = 1;
-				}
-				adsr_a_time = (uint32_t)(control_value[EG_ATTACK_TIM] / (SAMPLE_CYCLE / (float32_t)1000));
-				adsr_d_time = (uint32_t)(control_value[EG_DECAY_TIME] / (SAMPLE_CYCLE / (float32_t)1000));
-				adsr_r_time = (uint32_t)(control_value[EG_RELEASE_TIME] / (SAMPLE_CYCLE / (float32_t)1000));
-
-				//Processing Exit
-				if(status == STATUS_HALF){
-					status = STATUS_WAIT;
-				}
-				break;
-			case STATUS_DONE:
-				//update array for DAC(Latter half)
-				float2uint(audio_out, audio_dac, HALF_NUM_SAMPLING, NUM_SAMPLING);
-
-				//create filter(If the q-factor or cutoff-frequency is changed)
-				cutoff_NN = control_value[LPF_CUTOFF] + wow_NN;
-				if (cutoff_NN > MAX_FREQ_NOTE) {
-					cutoff_NN = MAX_FREQ_NOTE;
-				}
-
-				q_factor = (float32_t)control_value[LPF_Q] / 100;
-				cutoff_freq = 440 * powf(2, ((float32_t) cutoff_NN / 3072) - 5.75);
-
-				calc_lpf_coeffs(pCoeffs, cutoff_freq, q_factor);
-				arm_biquad_cascade_df2T_init_f32(&S, 1, pCoeffs, buffer);
-				//calc_amp_char(amp_characteristic, cutoff_freq, q_factor); //filter stastic
-
-				//audio create
-				arm_fill_f32(0, (audio_in + PRE_SAMPLE), NUM_SAMPLING); //audio array initialize
-				uint16_t signal_set_index = S1_ENABLE;
-				for (uint8_t chord = 0; chord < 10; chord++) {
-					float32_t amp_chord = 1;
-
-					uint16_t ampsig = control_value[signal_set_index];
-					if((0 == ampsig) && (adsr_state[chord] > 4)){
-						sig_amp_prev[chord] = 0;
-						signal_set_index += 6;
-						continue;
-					}else if ((0 == ampsig) && (adsr_state[chord] < 4)) {
-						adsr_state[chord] = 4;
-						adsr_time[chord] = 0;
-					}else if((ampsig > 0) && (adsr_state[chord] > 3)){
-						adsr_state[chord] = 0;
-					}
-
-					//ADSR
-					float32_t amp_adsr = 1;
-					switch(adsr_state[chord]){
-					case 0:
-						adsr_state[chord] = 1;
-						adsr_time[chord] = 0;
-					case 1: //attack
-						if(adsr_time[chord] < adsr_a_time){
-							amp_adsr = powf(10, -2 * (float32_t)adsr_time[chord] / adsr_a_time);
-							amp_adsr = (control_value[EG_ATTACK_LEVEL] / (float32_t)100) * (1 - amp_adsr);
-							adsr_time[chord] += NUM_SAMPLING;
-							break;
-						}else{
-							adsr_state[chord] = 2;
-							adsr_time[chord] = 0;
-						}
-					case 2: //decay
-						if(adsr_time[chord] < adsr_d_time){
-							amp_adsr = powf(10, -2 * (float32_t)adsr_time[chord] / adsr_d_time);
-							amp_adsr = (ampsig / (float32_t)100) + ((control_value[EG_ATTACK_LEVEL] - ampsig) / (float32_t)100) * amp_adsr;
-							adsr_time[chord] += NUM_SAMPLING;
-							break;
-						}else{
-							adsr_state[chord] = 3;
-							adsr_time[chord] = 0;
-							break;
-						}
-					case 3: //sustain
-						break;
-					case 4: //release
-						ampsig = sig_amp_prev[chord];
-						amp_adsr = powf(10, -2 * (float32_t)adsr_time[chord] / adsr_r_time);
-
-						if((0.001 > amp_chord) || (adsr_time[chord] > adsr_r_time)){
-							adsr_state[chord] = 5;
-						}
-						adsr_time[chord] += NUM_SAMPLING;
-						break;
-					default:
-						break;
-					}
-
-					amp_chord *= ampsig / (float32_t)100;
-					amp_chord *= amp_adsr;
-
-					sig_amp_prev[chord] = ampsig;
-					if ((0.001 > amp_chord) || (adsr_state[chord] > 4)) {
-						signal_set_index += 6;
-						continue;
-					}
-
-					float32_t audio_temp[NUM_SAMPLING] = {0};
-
-					uint16_t notenum = control_value[signal_set_index + 1] + vib;
-					float32_t freq = 440 * powf(2, ((float32_t)notenum / 3072) - 5.75);
-
-					//vibrato
-					float32_t delta_omega;
-					audio_rad[0] = audio_rad_chord[chord]; //init
-					delta_omega = 2 * M_PI * freq * (SAMPLE_CYCLE / (float32_t)1000000);
-					if(notenum_prev[chord] != notenum) {
-						delta_omega = 440 * powf(2, ((float32_t)notenum_prev[chord] / 3072) - 5.75);
-						float32_t delta_omega_slope = 2 * M_PI * ((delta_omega - freq) / NUM_SAMPLING) * (SAMPLE_CYCLE/ (float32_t)1000000);
-						delta_omega = 2 * M_PI * delta_omega * (SAMPLE_CYCLE/ (float32_t)1000000);
-
-						for(uint16_t t = 1; t < NUM_SAMPLING; t++){
-							audio_rad[t] = audio_rad[t - 1] + delta_omega;
-							if(audio_rad[t] > (2 * M_PI)){
-								audio_rad[t] -= (2 * M_PI);
-							}
-							delta_omega -= delta_omega_slope;
-						}
-					}else{
-						delta_omega = 2 * M_PI * freq * (SAMPLE_CYCLE / (float32_t)1000000);
-
-						for(uint16_t t = 1; t < NUM_SAMPLING; t++){
-							audio_rad[t] = audio_rad[t - 1] + delta_omega;
-							if(audio_rad[t] > (2 * M_PI)){
-								audio_rad[t] -= (2 * M_PI);
-							}
-						}
-					}
-
-					//refresh
-					notenum_prev[chord] = notenum;
-					audio_rad_chord[chord] = audio_rad[NUM_SAMPLING - 1] + delta_omega;
-					if(audio_rad_chord[chord] > (2 * M_PI)){
-						audio_rad_chord[chord] -= (2 * M_PI);
-					}
-
-					//create each wave
-					if(sig_sync_ch == 0){
-						add_sin(audio_temp, audio_rad, (uint16_t) control_value[signal_set_index + 2], NUM_SAMPLING);
-						add_square(audio_temp, audio_rad, (uint16_t) control_value[signal_set_index + 3], NUM_SAMPLING);
-						add_sawtooth(audio_temp, audio_rad, (uint16_t) control_value[signal_set_index + 4], NUM_SAMPLING);
-						add_triangle(audio_temp, audio_rad, (uint16_t) control_value[signal_set_index + 5], NUM_SAMPLING);
-					}else{
-						add_sin(audio_temp, audio_rad, (uint16_t) control_value[S1_SIN], NUM_SAMPLING);
-						add_square(audio_temp, audio_rad, (uint16_t) control_value[S1_SQU], NUM_SAMPLING);
-						add_sawtooth(audio_temp, audio_rad, (uint16_t) control_value[S1_SAW], NUM_SAMPLING);
-						add_triangle(audio_temp, audio_rad, (uint16_t) control_value[S1_TRI], NUM_SAMPLING);
-					}
-					signal_set_index += 6;
-
-					arm_scale_f32(audio_temp, amp_chord, audio_temp, NUM_SAMPLING);
-					arm_add_f32(audio_in + PRE_SAMPLE, audio_temp, audio_in + PRE_SAMPLE, NUM_SAMPLING);
-				}
-
-				//input filter
-				arm_biquad_cascade_df2T_f32(&S, audio_in, audio_out, SAMPLE_ALL);
-				//arm_copy_f32(audio_in, audio_out, SAMPLE_ALL); //filter-less test
-
-				//tremolo
-				arm_mult_f32((audio_out + PRE_SAMPLE), audio_amp, (audio_out + PRE_SAMPLE), NUM_SAMPLING);
-
-				//pre-sample for filter (for next cycle)
-				arm_copy_f32((audio_in + NUM_SAMPLING), audio_in, PRE_SAMPLE);
-
-				//offset audio GND
-				arm_offset_f32((audio_out + PRE_SAMPLE), GND_LEVEL, (audio_out + PRE_SAMPLE), NUM_SAMPLING);
-
-				//Processing Exit
-				if(status == STATUS_DONE){
-					status = STATUS_WAIT;
-				}
-				break;
-			case STATUS_WAIT:
-			default:
-				if(displaySplitIndex < ILI9341_SPLIT_NUM){
-					ILI9341_printBitmap_split(frameBuffer, displaySplitIndex++);
-				}else if(displaySplitIndex == ILI9341_SPLIT_NUM){
-					//set frame buffer
-					bitmap_clear();
-
-					uint16_t dis_y_adsr = 20;
-					uint16_t dis_x_adsr = 30;
-					uint16_t dis_x1, dis_x2, dis_y1, dis_y2;
-
-					bitmap_stringBitmap(5, dis_y_adsr - 10, "ADSR", 1, 1, 0xff);
-					bitmap_line(20, dis_y_adsr + 100, 220, dis_y_adsr + 100, 0xda); //0 line
-					bitmap_stringBitmap(188, dis_y_adsr + 103, "[ms]", 1, 1, 0xda);
-
-					dis_x1 = dis_x_adsr + (20 * ((control_value[EG_ATTACK_TIM] > 1000)?(1000):(control_value[EG_ATTACK_TIM])) / 1000);
-					dis_y1 = dis_y_adsr + 100 - (uint16_t)(50 * control_value[EG_ATTACK_LEVEL] / 100);
-					bitmap_line(dis_x_adsr, dis_y_adsr + 100, dis_x1, dis_y1, 0x1f); //A line
-					sprintf(string, "%4d", control_value[EG_ATTACK_TIM]);
-					bitmap_stringBitmap(dis_x_adsr, dis_y_adsr + 103, string, 0, 0, 0x1f);
-					sprintf(string, "%d.%02d", (uint8_t) (control_value[EG_ATTACK_LEVEL] / 100), (uint8_t) (control_value[EG_ATTACK_LEVEL] * 100) % 100);
-					bitmap_stringBitmap(dis_x1 - 20, dis_y1, string, 0, 0, 0x1f);
-
-					dis_x2 = dis_x1 + (20 * ((control_value[EG_DECAY_TIME] > 1000)?(1000):(control_value[EG_DECAY_TIME])) / 1000);
-					dis_y2 = dis_y_adsr + 50;
-					bitmap_line(dis_x1, dis_y1, dis_x2, dis_y2, 0x9d); //D line
-					sprintf(string, "%4d", control_value[EG_DECAY_TIME]);
-					bitmap_stringBitmap(dis_x1, dis_y2 + 2, string, 0, 0, 0x9d);
-
-					dis_x1 = dis_x2 + 20;
-					bitmap_line(dis_x2, dis_y2, dis_x1, dis_y2, 0xf4); //S line
-
-					dis_x2 = dis_x1 + (120 * ((control_value[EG_RELEASE_TIME] > 6000)?(6000):(control_value[EG_RELEASE_TIME])) / 6000);
-					bitmap_line(dis_x1, dis_y2, dis_x2, dis_y_adsr + 100, 0xfd); //R line
-					sprintf(string, "%5d", control_value[EG_RELEASE_TIME]);
-					bitmap_stringBitmap(dis_x1, dis_y2 - 10, string, 0, 0, 0xfd);
-
-					displaySplitIndex++;
+				axis_tmp = 12.0f * log2f((20.0f * (float32_t)control_value[WOW_LFO] / 65535.0f) / 440.0f) + 69.0f + 76.2394537f;
+				axis_tmp = 30.0f + 180.0f * axis_tmp / 211.0f;
+				dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
+				if (20 < dis_x_freq) {
+					bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[SYNTH_IND_WOW]);
 				}else{
-					//display para all
-					uint16_t dis_y_freq = 250;
-					uint16_t dis_y_amp = 160;
-					uint16_t dis_x_freq, dis_x_amp;
-					uint16_t dis_width_lfo_vib = 0;
-					uint16_t dis_width_lfo_tre = 0;
-					uint16_t dis_width_lfo_wow = 0;
-
-					//title
-					bitmap_stringBitmap(45, dis_y_amp - 20, "LPF", 1, 1, color_behavior[IND_FIL]);
-					bitmap_stringBitmap(85, dis_y_amp - 20, "WOW", 1, 1, color_behavior[IND_WOW]);
-					bitmap_stringBitmap(125, dis_y_amp - 20, "VIB", 1, 1, color_behavior[IND_VIB]);
-					bitmap_stringBitmap(165, dis_y_amp - 20, "TRE", 1, 1, color_behavior[IND_TRE]);
-
-					//behavior formtype
-					uint16_t behavior_formtype = WOW_FORM;
-					uint8_t x_formtype = 85 + 8 * 3;
-					for(uint8_t i = 0; i < 3; i++){
-						switch(control_value[behavior_formtype]){
-							case 0:
-								bitmap_stringBitmap(x_formtype, dis_y_amp - 20, "~", 1, 1, color_behavior[i]);
-								break;
-							case 1:
-								bitmap_line(x_formtype, dis_y_amp - 20, x_formtype + 4, dis_y_amp - 20, color_behavior[i]);
-								bitmap_line(x_formtype + 4, dis_y_amp - 20, x_formtype + 4, dis_y_amp - 13, color_behavior[i]);
-								bitmap_line(x_formtype + 4, dis_y_amp - 13, x_formtype + 8, dis_y_amp - 13, color_behavior[i]);
-								break;
-							case 2:
-								bitmap_line(x_formtype, dis_y_amp - 20, x_formtype + 7, dis_y_amp - 13, color_behavior[i]);
-								break;
-							case 3:
-								bitmap_line(x_formtype, dis_y_amp - 13, x_formtype + 7, dis_y_amp - 20, color_behavior[i]);
-								break;
-							default:
-								break;
-						}
-						behavior_formtype += 3;
-						x_formtype += 40;
-					}
-
-					//amp. axis
-					bitmap_stringBitmap(5, dis_y_amp - 10, "AMP.", 1, 1, 0xff);
-					bitmap_stringBitmap(45, dis_y_amp - 10, "SIN", 1, 1, color_signal[SIG_SIN]);
-					bitmap_stringBitmap(85, dis_y_amp - 10, "SQU", 1, 1, color_signal[SIG_SQU]);
-					bitmap_stringBitmap(125, dis_y_amp - 10, "SAW", 1, 1, color_signal[SIG_SAW1]);
-					bitmap_stringBitmap(165, dis_y_amp - 10, "TRI", 1, 1, color_signal[SIG_TRI]);
-
-					//freq. axis
-					bitmap_stringBitmap(5, dis_y_freq - 10, "FREQ.", 1, 1, 0xff);
-					sprintf(string, "[Q:%2d.%02d]", (uint8_t) q_factor, (uint8_t) (q_factor * 100) % 100);
-					bitmap_stringBitmap(140, dis_y_freq - 10, string, 1, 1, color_behavior[IND_FIL]);
-
-					bitmap_line(30, dis_y_freq, 30, dis_y_freq + 60, 0xda); //0.1Hz
-					bitmap_line(64, dis_y_freq, 64, dis_y_freq + 60, 0xda); //1Hz
-					bitmap_line(98, dis_y_freq, 98, dis_y_freq + 60, 0xda); //10Hz
-					bitmap_line(132, dis_y_freq, 132, dis_y_freq + 60, 0xda); //100Hz
-					bitmap_line(166, dis_y_freq, 166, dis_y_freq + 60, 0xda); //1000Hz
-					bitmap_line(200, dis_y_freq, 200, dis_y_freq + 60, 0xda); //10000Hz
-					//bitmap_line(210, dis_y_freq, 210, dis_y_freq + 60, 0xda); //20000Hz
-
-					float32_t axis_tmp;
-
-					//vib
-					dis_width_lfo_vib = (180 * control_value[VIB_AMP]) / 34579;
-
-					axis_tmp = 12 * log2f(lfo_freq[IND_VIB] / (float32_t)440) + 69 + 76.2394537;
-					axis_tmp = 30 + 180 * axis_tmp / 211;
-					dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
-					if (0 < control_value[VIB_LFO]) {
-						bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[IND_VIB]);
-					}else{
-						bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 20, color_behavior[IND_VIB]);
-					}
-
-					//tre
-					dis_width_lfo_tre = 20 + (200 * control_value[TRE_AMP]) / 34579;
-					bitmap_line(dis_width_lfo_tre, dis_y_amp, dis_width_lfo_tre, dis_y_amp + 60, color_behavior[IND_TRE]);
-
-					axis_tmp = 12 * log2f(lfo_freq[IND_TRE] / (float32_t)440) + 69 + 76.2394537;
-					axis_tmp = 30 + 180 * axis_tmp / 211;
-					dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
-					if (0 < control_value[TRE_LFO]) {
-						bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[IND_TRE]);
-					}else{
-						bitmap_line(dis_x_freq, dis_y_freq + 21, dis_x_freq, dis_y_freq + 40, color_behavior[IND_TRE]);
-					}
-
-					//wow
-					//filter
-					axis_tmp = (control_value[LPF_CUTOFF] / (float32_t)256) + 76.2394537;
-					axis_tmp = 30 + 180 * axis_tmp / 211;
-					dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
-					dis_width_lfo_wow = (180 * control_value[WOW_AMP]) / 34579;
-
-					bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[IND_FIL]);
-					bitmap_line(dis_x_freq - dis_width_lfo_wow, dis_y_freq, dis_x_freq - dis_width_lfo_wow, dis_y_freq + 60, color_behavior[IND_FIL]);
-					bitmap_line(dis_x_freq + dis_width_lfo_wow, dis_y_freq, dis_x_freq + dis_width_lfo_wow, dis_y_freq + 60, color_behavior[IND_FIL]);
-
-					axis_tmp = 12 * log2f(lfo_freq[IND_WOW] / (float32_t)440) + 69 + 76.2394537;
-					axis_tmp = 30 + 180 * axis_tmp / 211;
-					dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
-					if (0 < control_value[WOW_LFO]) {
-						bitmap_line(dis_x_freq, dis_y_freq, dis_x_freq, dis_y_freq + 60, color_behavior[IND_WOW]);
-					}else{
-						bitmap_line(dis_x_freq, dis_y_freq + 41, dis_x_freq, dis_y_freq + 60, color_behavior[IND_WOW]);
-					}
-
-					//signal
-					for(uint8_t chord = 0; chord < 10; chord++){
-						if(control_value[S1_ENABLE + (6 * chord)]){
-							bitmap_fillrect(14, dis_y_freq, 15, dis_y_freq + 4, color_behavior[IND_SIG]);
-							bitmap_fillrect(14, dis_y_amp, 15, dis_y_amp + 4, color_behavior[IND_SIG]);
-						}
-
-						sprintf(string, "%2d", chord + 1);
-
-						//freq
-						bitmap_stringBitmap(5, dis_y_freq, string, 0, 0, 0xff);
-
-						axis_tmp = (control_value[S1_FREQ + (6 * chord)] / (float32_t)256) + 76.2394537;
-						axis_tmp = 30 + 180 * axis_tmp / 211;
-						dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
-						bitmap_line(20, dis_y_freq + 2, 220, dis_y_freq + 2, 0xda);
-						bitmap_line(dis_x_freq - dis_width_lfo_vib, dis_y_freq + 2, dis_x_freq + dis_width_lfo_vib, dis_y_freq + 2, color_behavior[IND_VIB]);
-						bitmap_rect(dis_x_freq - 1, dis_y_freq + 1, dis_x_freq + 1, dis_y_freq + 3, 1, color_behavior[IND_SIG]);
-
-						dis_y_freq += 6;
-
-						//amp
-						bitmap_stringBitmap(5, dis_y_amp, string, 0, 0, 0xff);
-						bitmap_line(20, dis_y_amp + 2, 220, dis_y_amp + 2, 0xda);
-						uint16_t sig_num_view;
-
-						sig_num_view = (sig_sync_ch == 0)?(S1_SIN + (6 * chord)):(S1_SIN);
-						if(control_value[sig_num_view] > 0){
-							dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
-							if(dis_x_amp > 220){
-								dis_x_amp = 220;
-							}
-							bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SIG_SIN]);
-						}
-						sig_num_view = (sig_sync_ch == 0)?(S1_SQU + (6 * chord)):(S1_SQU);
-						if(control_value[sig_num_view] > 0){
-							dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
-							if(dis_x_amp > 220){
-								dis_x_amp = 220;
-							}
-							bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SIG_SQU]);
-						}
-						sig_num_view = (sig_sync_ch == 0)?(S1_SAW + (6 * chord)):(S1_SAW);
-						if(control_value[sig_num_view] > 0){
-							dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
-							if(dis_x_amp > 220){
-								dis_x_amp = 220;
-							}
-							bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SIG_SAW1]);
-						}
-						sig_num_view = (sig_sync_ch == 0)?(S1_TRI + (6 * chord)):(S1_TRI);
-						if(control_value[sig_num_view] > 0){
-							dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
-							if(dis_x_amp > 220){
-								dis_x_amp = 220;
-							}
-							bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SIG_TRI]);
-						}
-
-						dis_y_amp += 6;
-					}
-
-					displaySplitIndex = 0;
+					bitmap_line(dis_x_freq, dis_y_freq + 41, dis_x_freq, dis_y_freq + 60, color_behavior[SYNTH_IND_WOW]);
 				}
-				break;
+
+				//signal
+				for(uint8_t chord = 0; chord < 10; chord++){
+					if(control_value[S1_ENABLE + (6 * chord)]){
+						bitmap_fillrect(14, dis_y_freq, 15, dis_y_freq + 4, color_behavior[SYNTH_IND_SIG]);
+						bitmap_fillrect(14, dis_y_amp, 15, dis_y_amp + 4, color_behavior[SYNTH_IND_SIG]);
+					}
+
+					sprintf(string, "%2d", chord + 1);
+
+					//freq
+					bitmap_stringBitmap(5, dis_y_freq, string, 0, 0, 0xff);
+
+					axis_tmp = (control_value[S1_FREQ + (6 * chord)] / 256.0f) + 76.2394537f;
+					axis_tmp = 30 + 180 * axis_tmp / 211;
+					dis_x_freq = (axis_tmp < 20) ? (20) : (uint16_t)(axis_tmp);
+					bitmap_line(20, dis_y_freq + 2, 220, dis_y_freq + 2, 0xda);
+					bitmap_line(dis_x_freq - dis_width_lfo_vib, dis_y_freq + 2, dis_x_freq + dis_width_lfo_vib, dis_y_freq + 2, color_behavior[SYNTH_IND_VIB]);
+					bitmap_rect(dis_x_freq - 1, dis_y_freq + 1, dis_x_freq + 1, dis_y_freq + 3, 1, color_behavior[SYNTH_IND_SIG]);
+
+					dis_y_freq += 6;
+
+					//amp
+					bitmap_stringBitmap(5, dis_y_amp, string, 0, 0, 0xff);
+					bitmap_line(20, dis_y_amp + 2, 220, dis_y_amp + 2, 0xda);
+					uint16_t sig_num_view;
+
+					sig_num_view = (control_value[SYNC_WAVFORM] == 0)?(S1_SIN + (6 * chord)):(S1_SIN);
+					if(control_value[sig_num_view] > 0){
+						dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
+						if(dis_x_amp > 220){
+							dis_x_amp = 220;
+						}
+						bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SYNTH_SIG_SIN]);
+					}
+					sig_num_view = (control_value[SYNC_WAVFORM] == 0)?(S1_SQU + (6 * chord)):(S1_SQU);
+					if(control_value[sig_num_view] > 0){
+						dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
+						if(dis_x_amp > 220){
+							dis_x_amp = 220;
+						}
+						bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SYNTH_SIG_SQU]);
+					}
+					sig_num_view = (control_value[SYNC_WAVFORM] == 0)?(S1_SAW + (6 * chord)):(S1_SAW);
+					if(control_value[sig_num_view] > 0){
+						dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
+						if(dis_x_amp > 220){
+							dis_x_amp = 220;
+						}
+						bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SYNTH_SIG_SAW1]);
+					}
+					sig_num_view = (control_value[SYNC_WAVFORM] == 0)?(S1_TRI + (6 * chord)):(S1_TRI);
+					if(control_value[sig_num_view] > 0){
+						dis_x_amp = 20 + 200 * control_value[sig_num_view] / 512;
+						if(dis_x_amp > 220){
+							dis_x_amp = 220;
+						}
+						bitmap_rect(dis_x_amp - 1, dis_y_amp + 1, dis_x_amp + 1, dis_y_amp + 3, 1, color_signal[SYNTH_SIG_TRI]);
+					}
+
+					dis_y_amp += 6;
+				}
+
+				displaySplitIndex = 0;
+			}
 		}
     /* USER CODE END WHILE */
 
@@ -892,7 +581,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 168;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -950,6 +639,32 @@ static void MX_DAC_Init(void)
   /* USER CODE BEGIN DAC_Init 2 */
 
   /* USER CODE END DAC_Init 2 */
+
+}
+
+/**
+  * @brief RNG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RNG_Init(void)
+{
+
+  /* USER CODE BEGIN RNG_Init 0 */
+
+  /* USER CODE END RNG_Init 0 */
+
+  /* USER CODE BEGIN RNG_Init 1 */
+
+  /* USER CODE END RNG_Init 1 */
+  hrng.Instance = RNG;
+  if (HAL_RNG_Init(&hrng) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RNG_Init 2 */
+
+  /* USER CODE END RNG_Init 2 */
 
 }
 

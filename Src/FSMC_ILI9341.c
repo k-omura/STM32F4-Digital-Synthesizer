@@ -99,6 +99,25 @@ void ILI9341_init(void) {
 	HAL_Delay(5);
 }
 
+volatile uint8_t dmaTransCompFlag = 0;
+DMA_HandleTypeDef *mem2mem_hdma;
+uint16_t* lcdAddr = (uint16_t *) LCD_ADDR_DATA;
+void ILI9341_DMA_TransferCpltCallback(DMA_HandleTypeDef *_hdma) {
+	dmaTransCompFlag = 1;
+}
+void ILI9341_DMA_TransferHalfCpltCallback(DMA_HandleTypeDef *_hdma) {
+	dmaTransCompFlag = 1;
+}
+HAL_StatusTypeDef ILI9341_useDma(DMA_HandleTypeDef *_hdma) {
+	HAL_StatusTypeDef status = HAL_OK;
+	mem2mem_hdma = _hdma;
+	status = HAL_DMA_RegisterCallback(mem2mem_hdma, HAL_DMA_XFER_CPLT_CB_ID, ILI9341_DMA_TransferCpltCallback);
+	//HAL_DMA_RegisterCallback(mem2mem_hdma, HAL_DMA_XFER_HALFCPLT_CB_ID, ILI9341_DMA_TransferHalfCpltCallback);
+	//HAL_DMA_RegisterCallback(mem2mem_hdma, HAL_DMA_XFER_ERROR_CB_ID, ILI9341_DMA_TransferError);
+
+	return status;
+}
+
 void ILI9341_setRotation(uint8_t _rotate) {
 	switch (_rotate) {
 	case 1:
@@ -153,8 +172,9 @@ void ILI9341_printBitmap(uint8_t *_data) {
 		ILI9341_setRect(0, 0, ILI9341_HEIGHT - 1, ILI9341_WIDTH - 1);
 	}
 
+	uint8_t *p_data = _data;
 	for (uint32_t i = 0; i < ILI9341_PIXEL_COUNT; i++) {
-		ILI9341_sendData16(col8to16[_data[i]]);
+		ILI9341_sendData16(col8to16[*p_data++]);
 	}
 }
 
@@ -170,14 +190,38 @@ void ILI9341_printBitmap_split(uint8_t *_data, uint8_t _div) {
 		ILI9341_setRect(0, (_div * split_width), ILI9341_HEIGHT - 1, ((_div + 1) * split_width - 1));
 	}
 
-	_data = _data + (pixel_count * _div);
+	uint8_t *p_data = _data + (pixel_count * _div);
 
 	for (uint32_t i = 0; i < pixel_count; i++) {
-		ILI9341_sendData16(col8to16[_data[i]]);
+		ILI9341_sendData16(col8to16[*p_data++]);
 	}
 }
 
-const uint16_t col8to16[256] = {0b0000000000000000,
+void ILI9341_printBitmapDma(uint8_t *_data){
+	if (rotationNum == 1 || rotationNum == 3) {
+		ILI9341_setRect(0, 0, ILI9341_WIDTH - 1, ILI9341_HEIGHT - 1);
+	} else if (rotationNum == 2 || rotationNum == 4) {
+		ILI9341_setRect(0, 0, ILI9341_HEIGHT - 1, ILI9341_WIDTH - 1);
+	}
+
+	dmaTransCompFlag = 1;
+
+	uint16_t temp[2][ILI9341_WIDTH];
+	uint8_t page = 0;
+	uint32_t p = 0;
+	for (uint16_t i = 0; i < ILI9341_HEIGHT; i++) {
+		page = i % 2;
+		for (uint16_t j = 0; j < ILI9341_WIDTH; j++) {
+			temp[page][j] = col8to16[_data[p++]];
+		}
+		while(dmaTransCompFlag == 0);
+		dmaTransCompFlag = 0;
+		HAL_DMA_Start_IT(mem2mem_hdma, (uint32_t)&temp[page], (uint32_t)lcdAddr, ILI9341_WIDTH);
+	}
+}
+
+const uint16_t col8to16[256] = {
+	0b0000000000000000,
 	0b0000000000001010,
 	0b0000000000010101,
 	0b0000000000011111,

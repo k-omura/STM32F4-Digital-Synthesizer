@@ -254,6 +254,126 @@ void bitmap_fillcircle(uint16_t _x, uint16_t _y, uint16_t _round, uint16_t _orth
 	}
 }
 
+void bitmap_arc(uint16_t _x, uint16_t _y, uint16_t _round, uint16_t _startAngle, uint16_t _stopAngle, uint16_t _width, uint8_t _color){
+	if((_startAngle > _stopAngle) || (_startAngle > 720) || (_stopAngle > 720)){
+		return;
+	}
+	if((_startAngle >= 360) && (_stopAngle > 360)){
+		_startAngle -= 360;
+		_stopAngle -= 360;
+	}
+	uint16_t start360 = _startAngle % 360;
+	uint16_t stop360 = _stopAngle % 360;
+
+	for(uint16_t i = 0; i < _width; i++){
+		int32_t f = 1 - _round;
+		uint16_t ddF_x = 1;
+		int32_t ddF_y = -2 * _round;
+		uint16_t x = 0;
+		int32_t y = _round;
+
+		uint16_t circumference[9] = {0};
+		//circumference count
+		while (x < y) {
+			if (f >= 0) {
+				y--;
+				ddF_y += 2;
+				f += ddF_y;
+			}
+			x++;
+			ddF_x += 2;
+			f += ddF_x;
+
+			circumference[1]++;
+		}
+
+		for(uint8_t i = 2; i < 9; i++){
+			circumference[i] = circumference[i - 1] + circumference[1];
+			if((i % 2) == 0){
+				circumference[i]++;
+			}
+		}
+		circumference[1]++;
+
+		uint16_t startCircumference = (uint16_t)((circumference[8] * _startAngle / 360));
+		uint16_t stopCircumference = (uint16_t)((circumference[8] * _stopAngle / 360));
+		uint16_t circumferenceBorder = stopCircumference;
+		if((_startAngle < 360) && (_stopAngle > 360)){
+			circumferenceBorder -= circumference[8];
+		}
+
+		//re-init
+		f = 1 - _round;
+		ddF_x = 1;
+		ddF_y = -2 * _round;
+		x = 0;
+		y = _round;
+
+		if((start360 == 0) || (stop360 == 0) || ((_startAngle <= 360) && (_stopAngle >= 360))){
+			bitmap_pixel(_x + _round, _y, _color);
+		}
+		if((start360 == 90) || (stop360 == 90) || ((_startAngle <= 90) && (_stopAngle >= 90))){
+			bitmap_pixel(_x, _y - _round, _color);
+		}
+		if((start360 == 180) || (stop360 == 180) || ((_startAngle <= 180) && (_stopAngle >= 180))){
+			bitmap_pixel(_x - _round, _y, _color);
+		}
+		if((start360 == 270) || (stop360 == 270) || ((_startAngle <= 270) && (_stopAngle >= 270))){
+			bitmap_pixel(_x, _y + _round, _color);
+		}
+
+		circumference[3] = circumference[3] + circumference[1];
+		circumference[5] = circumference[5] + circumference[1];
+		circumference[7] = circumference[7] + circumference[1];
+		circumference[1] = circumference[1] + circumference[1];
+		while (x < y) {
+			if (f >= 0) {
+				y--;
+				ddF_y += 2;
+				f += ddF_y;
+			}
+			x++;
+			ddF_x += 2;
+			f += ddF_x;
+
+			circumference[0]++;
+			circumference[1]--;
+			circumference[2]++;
+			circumference[3]--;
+			circumference[4]++;
+			circumference[5]--;
+			circumference[6]++;
+			circumference[7]--;
+
+			if(((startCircumference <= circumference[0]) && (stopCircumference >= circumference[0])) || ((_stopAngle > 360) && (0 <= circumference[0]) && (circumferenceBorder >= circumference[0]))){
+				bitmap_pixel(_x + y, _y - x, _color);
+			}
+			if(((startCircumference <= circumference[1]) && (stopCircumference >= circumference[1])) || ((_stopAngle > 360) && (0 <= circumference[1]) && (circumferenceBorder >= circumference[1]))){
+				bitmap_pixel(_x + x, _y - y, _color);
+			}
+			if(((startCircumference <= circumference[2]) && (stopCircumference >= circumference[2])) || ((_stopAngle > 360) && (0 <= circumference[2]) && (circumferenceBorder >= circumference[2]))){
+				bitmap_pixel(_x - x, _y - y, _color);
+			}
+			if(((startCircumference <= circumference[3]) && (stopCircumference >= circumference[3])) || ((_stopAngle > 360) && (0 <= circumference[3]) && (circumferenceBorder >= circumference[3]))){
+				bitmap_pixel(_x - y, _y - x, _color);
+			}
+			if(((startCircumference <= circumference[4]) && (stopCircumference >= circumference[4])) || ((_stopAngle > 360) && (0 <= circumference[4]) && (circumferenceBorder >= circumference[4]))){
+				bitmap_pixel(_x - y, _y + x, _color);
+			}
+			if(((startCircumference <= circumference[5]) && (stopCircumference >= circumference[5])) || ((_stopAngle > 360) && (0 <= circumference[5]) && (circumferenceBorder >= circumference[5]))){
+				bitmap_pixel(_x - x, _y + y, _color);
+			}
+			if(((startCircumference <= circumference[6]) && (stopCircumference >= circumference[6])) || ((_stopAngle > 360) && (0 <= circumference[6]) && (circumferenceBorder >= circumference[6]))){
+				bitmap_pixel(_x + x, _y + y, _color);
+			}
+			if(((startCircumference <= circumference[7]) && (stopCircumference >= circumference[7])) || ((_stopAngle > 360) && (0 <= circumference[7]) && (circumferenceBorder >= circumference[7]))){
+				bitmap_pixel(_x + y, _y + x, _color);
+			}
+		}
+		_round--;
+	}
+}
+
 void bitmap_roundrect(uint16_t _x0, uint16_t _y0, uint16_t _x1, uint16_t _y1, uint16_t _round, uint16_t _width, uint8_t _color) {
 	if(bitmap_param.width == 0){
 		return;
@@ -391,6 +511,22 @@ void bitmap_terminal(const char _character[], uint8_t _font, uint8_t _color, uin
 	}
 
 	term_line++;
+}
+
+
+void bitmap_animation_4bit(const uint8_t* _frame, const uint8_t* _color_map, uint16_t _print_x, uint16_t _print_y, uint16_t _array_size_x, uint16_t _array_size_y){
+	const uint8_t *p_frame = _frame;
+	for(uint16_t y = 0; y < _array_size_y; y++){
+		uint8_t *p_bitmap = &bitmap_param.bitmap[((_print_y + y) * bitmap_param.width) + _print_x];
+		for(uint16_t x = 0; x < _array_size_x; x++){
+			uint8_t frame = *p_frame++;
+			uint8_t col1 = _color_map[(frame >> 4)];
+			uint8_t col2 = _color_map[(frame & 0b00001111)];
+
+			*p_bitmap++ = col1;
+			*p_bitmap++ = col2;
+		}
+	}
 }
 
 //--------
@@ -592,8 +728,7 @@ const unsigned char FONT8x8[][97][8] = {
 			{0b00000100,0b00001000,0b00001000,0b00011000,0b00001000,0b00001000,0b00000100,0b00000000}, //{
 			{0b00001000,0b00001000,0b00001000,0b00001000,0b00001000,0b00001000,0b00001000,0b00001000}, //|
 			{0b00010000,0b00001000,0b00001000,0b00001100,0b00001000,0b00001000,0b00010000,0b00000000}, //}
-			//{0b00000000,0b00000000,0b00000100,0b00101010,0b00010000,0b00000000,0b00000000,0b00000000}, //~
-			{0b01100000,0b10010000,0b10010000,0b10010000,0b00001001,0b00001001,0b00001001,0b00000110}, //~
+			{0b00000000,0b00000000,0b00000100,0b00101010,0b00010000,0b00000000,0b00000000,0b00000000}, //~
 			{ 0x1C, 0x36, 0x36, 0x1C, 0x00, 0x00, 0x00, 0x00 } // DEL
 	}/*,{
 			{ 0x08, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00 }, // columns, rows, num_bytes_per_char
